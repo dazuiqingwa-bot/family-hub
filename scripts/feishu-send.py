@@ -19,10 +19,13 @@ from pathlib import Path
 
 OPENCLAW_CONFIG = Path.home() / ".openclaw" / "openclaw.json"
 
-def load_feishu_creds():
+def load_feishu_creds(account_id: str = "default"):
     cfg = json.loads(OPENCLAW_CONFIG.read_text())
-    feishu = cfg["channels"]["feishu"]
-    return feishu["appId"], feishu["appSecret"]
+    accounts = cfg["channels"]["feishu"]["accounts"]
+    if account_id not in accounts:
+        raise RuntimeError(f"账号 {account_id} 不存在于 openclaw.json")
+    acc = accounts[account_id]
+    return acc["appId"], acc["appSecret"]
 
 def get_tenant_access_token(app_id: str, app_secret: str) -> str:
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
@@ -66,7 +69,13 @@ def main():
     # 把字面的 \n 转成真正的换行符
     text = text.replace('\\n', '\n')
 
-    app_id, app_secret = load_feishu_creds()
+    # 支持 --account 参数指定飞书账号，默认 default
+    account_id = "default"
+    if "--account" in sys.argv:
+        idx = sys.argv.index("--account")
+        account_id = sys.argv[idx + 1]
+
+    app_id, app_secret = load_feishu_creds(account_id)
     token = get_tenant_access_token(app_id, app_secret)
     result = send_message(token, open_id, text)
     print(f"✅ 发送成功，message_id: {result['data']['message_id']}")
